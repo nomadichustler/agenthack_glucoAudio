@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>glucoAudio - Voice-Based Glucose Monitoring</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600;700&display=swap">
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <div class="landing-container">
+        <div class="landing-content">
+            <div class="landing-header">
+                <h1 class="logo">glucoAudio</h1>
+                <div class="nav-buttons">
+                    <a href="{{ url_for('main.login_page') }}" class="btn btn-outline">Login</a>
+                    <a href="{{ url_for('main.register_page') }}" class="btn btn-primary">Sign Up</a>
+                </div>
+            </div>
+
+            <div class="hero-section">
+                <div class="hero-text">
+                    <h1 class="serif-title">Glucose monitoring<br>through your voice</h1>
+                    <p class="hero-subtitle">Non-invasive. Accessible. Intelligent.</p>
+                    <a href="{{ url_for('main.register_page') }}" class="btn btn-primary btn-shimmer">Get Started</a>
+                </div>
+                
+                <div class="hero-image">
+                    <div class="phone-mockup">
+                        <div class="phone-screen">
+                            <div class="analysis-animation">
+                                <div class="waveform">
+                                    <div class="wave"></div>
+                                    <div class="wave"></div>
+                                    <div class="wave"></div>
+                                    <div class="wave"></div>
+                                    <div class="wave"></div>
+                                </div>
+                                <div class="analysis-result">
+                                    <div class="result-circle">
+                                        <span class="result-value">Normal</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="how-it-works">
+                <h2 class="serif-title">How it works</h2>
+                <div class="steps-container">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3>Record your voice</h3>
+                            <p>Speak for 15 seconds into your device's microphone</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3>AI analysis</h3>
+                            <p>Our multi-agent AI analyzes voice biomarkers</p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3>Get results</h3>
+                            <p>Receive your glucose estimate and insights</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer class="landing-footer">
+            <p>© 2025 glucoAudio. All rights reserved.</p>
+        </footer>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add animation classes after page load
+            setTimeout(function() {
+                document.querySelector('.hero-text').classList.add('animate-in');
+                document.querySelector('.hero-image').classList.add('animate-in');
+            }, 200);
+
+            // Animate steps on scroll
+            const steps = document.querySelectorAll('.step');
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('animate-in');
+                    }
+                });
+            }, { threshold: 0.3 });
+
+            steps.forEach(step => {
+                observer.observe(step);
+            });
+        });
+    </script>
+</body>
+</html>

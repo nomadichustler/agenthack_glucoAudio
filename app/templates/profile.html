@@ -1,0 +1,471 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile - glucoAudio{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+    <h1 class="text-center mb-4 serif-title">Your Profile</h1>
+    
+    <div class="profile-grid">
+        <div class="profile-section account-info">
+            <div class="profile-card">
+                <div class="profile-card-header">
+                    <div class="profile-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <h2 class="profile-card-title">Account Information</h2>
+                </div>
+                
+                <div class="profile-card-body">
+                    <div class="info-group">
+                        <label class="info-label">Email Address</label>
+                        <div class="info-value">{{ session.email }}</div>
+                    </div>
+                    
+                    <div class="info-group">
+                        <label class="info-label">Member Since</label>
+                        <div class="info-value" id="memberSince">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="profile-section security">
+            <div class="profile-card">
+                <div class="profile-card-header">
+                    <div class="profile-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <h2 class="profile-card-title">Security</h2>
+                </div>
+                
+                <div class="profile-card-body">
+                    <form id="changePasswordForm">
+                        <div class="form-group">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <input type="password" id="currentPassword" name="currentPassword" class="form-input" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" id="newPassword" name="newPassword" class="form-input" required>
+                            <small class="form-hint">Password must be at least 8 characters</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="confirmNewPassword" class="form-label">Confirm New Password</label>
+                            <input type="password" id="confirmNewPassword" name="confirmNewPassword" class="form-input" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-shimmer">
+                            <i class="fas fa-key"></i> Update Password
+                        </button>
+                        
+                        <div id="passwordChangeMessage" class="message-box" style="display: none;"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="profile-section preferences">
+            <div class="profile-card">
+                <div class="profile-card-header">
+                    <div class="profile-icon">
+                        <i class="fas fa-cog"></i>
+                    </div>
+                    <h2 class="profile-card-title">Preferences</h2>
+                </div>
+                
+                <div class="profile-card-body">
+                    <form id="preferencesForm">
+                        <div class="toggle-group">
+                            <label for="notificationsEnabled" class="toggle-label">
+                                <span class="toggle-text">Email Notifications</span>
+                                <div class="toggle-switch">
+                                    <input type="checkbox" id="notificationsEnabled" name="notificationsEnabled">
+                                    <span class="toggle-slider"></span>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="theme" class="form-label">Theme</label>
+                            <select id="theme" name="theme" class="form-select">
+                                <option value="dark">Dark (Default)</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-shimmer">
+                            <i class="fas fa-save"></i> Save Preferences
+                        </button>
+                        
+                        <div id="preferencesMessage" class="message-box" style="display: none;"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<style>
+    .profile-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: var(--spacing-lg);
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: var(--spacing-lg);
+    }
+
+    .profile-card {
+        background-color: var(--bg-card);
+        border-radius: var(--radius-lg);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .profile-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .profile-card-header {
+        padding: var(--spacing-lg);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-md);
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(16, 185, 129, 0.1));
+    }
+
+    .profile-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+    }
+
+    .profile-card-title {
+        margin: 0;
+        font-size: 1.3rem;
+        color: var(--text-color);
+    }
+
+    .profile-card-body {
+        padding: var(--spacing-lg);
+    }
+
+    .info-group {
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .info-label {
+        display: block;
+        color: var(--text-muted);
+        margin-bottom: var(--spacing-sm);
+        font-size: 0.9rem;
+    }
+
+    .info-value {
+        padding: var(--spacing-sm) var(--spacing-md);
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .form-group {
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .form-label {
+        display: block;
+        color: var(--text-muted);
+        margin-bottom: var(--spacing-sm);
+        font-size: 0.9rem;
+    }
+
+    .form-input {
+        width: 100%;
+        padding: var(--spacing-sm) var(--spacing-md);
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--radius-md);
+        color: var(--text-color);
+        transition: all 0.3s ease;
+    }
+
+    .form-input:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    }
+
+    .form-hint {
+        display: block;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        margin-top: var(--spacing-xs);
+    }
+
+    .form-select {
+        width: 100%;
+        padding: var(--spacing-sm) var(--spacing-md);
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--radius-md);
+        color: var(--text-color);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .form-select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    }
+
+    .toggle-group {
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .toggle-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+    }
+
+    .toggle-text {
+        color: var(--text-muted);
+    }
+
+    .toggle-switch {
+        position: relative;
+        width: 50px;
+        height: 24px;
+    }
+
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255, 255, 255, 0.1);
+        transition: 0.4s;
+        border-radius: 34px;
+    }
+
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.4s;
+        border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+        background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    }
+
+    input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+    }
+
+    .message-box {
+        margin-top: var(--spacing-lg);
+        padding: var(--spacing-md);
+        border-radius: var(--radius-md);
+        font-size: 0.9rem;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .message-box.success {
+        background-color: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        color: #10b981;
+    }
+
+    .message-box.error {
+        background-color: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 768px) {
+        .profile-grid {
+            grid-template-columns: 1fr;
+            padding: var(--spacing-md);
+        }
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load user data
+        loadUserData();
+        
+        // Handle password change form
+        const changePasswordForm = document.getElementById('changePasswordForm');
+        const passwordChangeMessage = document.getElementById('passwordChangeMessage');
+        
+        changePasswordForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const currentPassword = document.getElementById('currentPassword').value;
+            const newPassword = document.getElementById('newPassword').value;
+            const confirmNewPassword = document.getElementById('confirmNewPassword').value;
+            
+            // Validate passwords
+            if (newPassword !== confirmNewPassword) {
+                showMessage(passwordChangeMessage, 'Passwords do not match.', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 8) {
+                showMessage(passwordChangeMessage, 'Password must be at least 8 characters.', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/auth/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        current_password: currentPassword,
+                        new_password: newPassword
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(passwordChangeMessage, 'Password updated successfully!', 'success');
+                    changePasswordForm.reset();
+                } else {
+                    showMessage(passwordChangeMessage, data.error || 'Failed to update password.', 'error');
+                }
+            } catch (error) {
+                showMessage(passwordChangeMessage, 'An error occurred. Please try again.', 'error');
+            }
+        });
+        
+        // Handle preferences form
+        const preferencesForm = document.getElementById('preferencesForm');
+        const preferencesMessage = document.getElementById('preferencesMessage');
+        
+        preferencesForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const notificationsEnabled = document.getElementById('notificationsEnabled').checked;
+            const theme = document.getElementById('theme').value;
+            
+            try {
+                const response = await fetch('/auth/profile', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        preferences: {
+                            notificationsEnabled,
+                            theme
+                        }
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage(preferencesMessage, 'Preferences saved successfully!', 'success');
+                } else {
+                    showMessage(preferencesMessage, data.error || 'Failed to save preferences.', 'error');
+                }
+            } catch (error) {
+                showMessage(preferencesMessage, 'An error occurred. Please try again.', 'error');
+            }
+        });
+        
+        // Helper function to show messages
+        function showMessage(element, message, type) {
+            element.textContent = message;
+            element.className = 'message-box ' + type;
+            element.style.display = 'block';
+            
+            // Add shake animation for errors
+            if (type === 'error') {
+                element.classList.add('shake-animation');
+                setTimeout(() => {
+                    element.classList.remove('shake-animation');
+                }, 500);
+            }
+            
+            // Hide message after 5 seconds
+            setTimeout(() => {
+                element.style.opacity = '0';
+                setTimeout(() => {
+                    element.style.display = 'none';
+                    element.style.opacity = '1';
+                }, 300);
+            }, 5000);
+        }
+        
+        // Load user data from API
+        async function loadUserData() {
+            try {
+                const response = await fetch('/api/v1/user');
+                const data = await response.json();
+                
+                if (data.success && data.user) {
+                    // Set member since date
+                    const createdDate = new Date(data.user.created_at);
+                    document.getElementById('memberSince').textContent = createdDate.toLocaleDateString();
+                    
+                    // Set preferences
+                    if (data.user.preferences) {
+                        document.getElementById('notificationsEnabled').checked = 
+                            data.user.preferences.notificationsEnabled || false;
+                        
+                        if (data.user.preferences.theme) {
+                            document.getElementById('theme').value = data.user.preferences.theme;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+            }
+        }
+    });
+</script>
+{% endblock %}

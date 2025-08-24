@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - glucoAudio{% endblock %}
+
+{% block content %}
+<div class="auth-container fade-in framer-appear">
+    <h1 class="text-center mb-4 serif-title">Login</h1>
+    
+    <div class="auth-card">
+        <form id="loginForm" class="auth-form">
+            <div class="form-group">
+                <label for="email" class="form-label">Email Address</label>
+                <input type="email" id="email" name="email" class="form-control" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            
+            <div class="form-group text-right">
+                <a href="#" class="forgot-password">Forgot password?</a>
+            </div>
+            
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary btn-shimmer" style="width: 100%;">Login</button>
+            </div>
+            
+            <div id="loginError" class="error-message" style="display: none; color: var(--error);"></div>
+        </form>
+    </div>
+    
+    <div class="text-center mt-3">
+        <p>Don't have an account? <a href="{{ url_for('main.register_page') }}">Register</a></p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        
+        loginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.location.href = '/dashboard';
+                } else {
+                    loginError.textContent = data.error || 'Login failed. Please try again.';
+                    loginError.style.display = 'block';
+                }
+            } catch (error) {
+                loginError.textContent = 'An error occurred. Please try again.';
+                loginError.style.display = 'block';
+            }
+        });
+    });
+</script>
+{% endblock %}

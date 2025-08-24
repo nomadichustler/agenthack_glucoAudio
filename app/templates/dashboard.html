@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - glucoAudio{% endblock %}
+
+{% block content %}
+<div class="dashboard-container fade-in">
+    <div class="dashboard-header">
+        <h1 class="dashboard-title serif-title">Your Dashboard</h1>
+        <a href="{{ url_for('main.new_analysis') }}" class="btn btn-primary btn-shimmer">New Analysis</a>
+    </div>
+
+    <div class="dashboard-grid">
+        <div class="dashboard-card">
+            <h3>Total Analysis</h3>
+            <div class="value">{{ total_count|default('0') }}</div>
+            <div class="subtext">completed analyses</div>
+        </div>
+
+        <div class="dashboard-card">
+            <h3>Average Confidence</h3>
+            <div class="value">{{ avg_confidence|default('0') }}%</div>
+            <div class="subtext">across all analyses</div>
+        </div>
+
+        <div class="dashboard-card">
+            <h3>Most Common Result</h3>
+            <div class="value">{{ common_result|default('Normal') }}</div>
+            <div class="subtext">glucose estimate</div>
+        </div>
+
+        <div class="dashboard-card trend-card">
+            <h3>Glucose Trend</h3>
+            <div class="chart-container">
+                <canvas id="glucoseTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Recent History</h2>
+        <div class="history-list">
+            {% if history and history|length > 0 %}
+                <div class="history-table">
+                    <div class="history-header">
+                        <div class="history-cell">Date</div>
+                        <div class="history-cell">Estimate</div>
+                        <div class="history-cell">Confidence</div>
+                        <div class="history-cell">Actions</div>
+                    </div>
+                    {% for item in history %}
+                    <div class="history-row">
+                        <div class="history-cell">{{ item.timestamp }}</div>
+                        <div class="history-cell">
+                            {% if item.prediction and item.prediction.primary_estimate %}
+                                <span class="badge badge-{{ item.prediction.primary_estimate|lower }}">
+                                    {{ item.prediction.primary_estimate }}
+                                </span>
+                            {% else %}
+                                <span class="badge badge-unknown">Unknown</span>
+                            {% endif %}
+                        </div>
+                        <div class="history-cell">
+                            {% if item.prediction and item.prediction.confidence_score %}
+                                {{ (item.prediction.confidence_score * 100)|int }}%
+                            {% else %}
+                                --
+                            {% endif %}
+                        </div>
+                        <div class="history-cell">
+                            <a href="{{ url_for('main.results', session_id=item.session_id) }}" class="btn btn-sm btn-outline">View</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <p>No analysis history yet. Start your first analysis to see results here.</p>
+                    <a href="{{ url_for('main.new_analysis') }}" class="btn btn-primary">Start Analysis</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Get glucose data from history
+        const historyData = {{ history_json|safe }};
+        
+        // Format data for chart
+        const labels = [];
+        const dataPoints = [];
+        
+        // If we have history data, process it
+        if (historyData && historyData.length > 0) {
+            // Sort by timestamp
+            historyData.sort((a, b) => {
+                // Try to parse dates, fall back to string comparison
+                try {
+                    return new Date(a.timestamp) - new Date(b.timestamp);
+                } catch (e) {
+                    return a.timestamp.localeCompare(b.timestamp);
+                }
+            });
+            
+            // Extract data for chart
+            historyData.forEach(item => {
+                // Extract date from timestamp
+                let dateLabel;
+                try {
+                    const dateParts = item.timestamp.split(',')[0];
+                    dateLabel = dateParts;
+                } catch (e) {
+                    dateLabel = item.timestamp;
+                }
+                labels.push(dateLabel);
+                
+                // Extract glucose value
+                let glucoseValue = null;
+                if (item.prediction && item.prediction.primary_estimate) {
+                    // Convert text estimates to numeric values for visualization
+                    switch(item.prediction.primary_estimate.toLowerCase()) {
+                        case 'low':
+                            glucoseValue = 60;
+                            break;
+                        case 'normal':
+                            glucoseValue = 100;
+                            break;
+                        case 'elevated':
+                            glucoseValue = 140;
+                            break;
+                        case 'high':
+                            glucoseValue = 180;
+                            break;
+                        case 'critical':
+                            glucoseValue = 220;
+                            break;
+                        default:
+                            glucoseValue = null;
+                    }
+                }
+                
+                dataPoints.push(glucoseValue);
+            });
+        } else {
+            // No sample data - show empty chart with message
+            const noDataElement = document.createElement('div');
+            noDataElement.className = 'no-data-message';
+            noDataElement.textContent = 'No glucose data available. Complete an analysis to see your trend.';
+            
+            const chartContainer = document.querySelector('.chart-container');
+            chartContainer.innerHTML = '';
+            chartContainer.appendChild(noDataElement);
+            
+            // Return early - don't create chart with no data
+            return;
+        }
+        
+        // Create chart
+        const ctx = document.getElementById('glucoseTrendChart').getContext('2d');
+        const glucoseTrendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Glucose Estimate (mg/dL)',
+                    data: dataPoints,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    fill: true,
+                    pointBackgroundColor: '#4f46e5',
+                    pointBorderColor: '#fff',
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        min: 50,
+                        max: 250,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.7)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.7)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: 'rgba(255, 255, 255, 0.7)'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: '#4f46e5',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y + ' mg/dL';
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Add animation classes to elements
+        document.querySelectorAll('.dashboard-card').forEach((card, index) => {
+            setTimeout(() => {
+                card.classList.add('fade-in');
+            }, 100 * index);
+        });
+    });
+</script>
+
+<style>
+    /* Additional styles for dashboard */
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .history-header {
+        display: flex;
+        font-weight: 600;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: var(--spacing-sm);
+        margin-bottom: var(--spacing-sm);
+    }
+    
+    .history-row {
+        display: flex;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        padding: var(--spacing-sm) 0;
+        transition: background-color 0.2s ease;
+    }
+    
+    .history-row:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+    }
+    
+    .history-cell {
+        flex: 1;
+        padding: var(--spacing-sm);
+    }
+    
+    .history-cell:first-child {
+        flex: 2;
+    }
+    
+    .history-cell:last-child {
+        text-align: right;
+    }
+    
+    .badge {
+        display: inline-block;
+        padding: 0.25em 0.6em;
+        border-radius: var(--radius-full);
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .badge-normal {
+        background-color: #10b981;
+        color: white;
+    }
+    
+    .badge-elevated {
+        background-color: #f59e0b;
+        color: white;
+    }
+    
+    .badge-low {
+        background-color: #3b82f6;
+        color: white;
+    }
+    
+    .badge-high, .badge-critical {
+        background-color: #ef4444;
+        color: white;
+    }
+    
+    .badge-unknown {
+        background-color: #6b7280;
+        color: white;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: var(--spacing-xl) 0;
+        color: var(--text-muted);
+    }
+    
+    .empty-state p {
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .no-data-message {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: var(--text-muted);
+        padding: var(--spacing-lg);
+        font-size: 0.9rem;
+        background-color: rgba(0, 0, 0, 0.05);
+        border-radius: var(--radius-md);
+    }
+</style>
+{% endblock %}

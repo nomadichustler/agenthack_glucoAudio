@@ -1,0 +1,488 @@
+{% extends 'base.html' %}
+
+{% block title %}Voice Recording - glucoAudio{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+    <div class="recording-container">
+        <h1 class="serif-title text-center mb-4">Voice Recording</h1>
+        <p class="text-center mb-4">Please read the text below aloud when recording your voice.</p>
+        
+        <div class="recording-card">
+            <div class="recording-prompt">
+                <h3>Please read this text aloud:</h3>
+                <div class="prompt-text" id="recordingPrompt">
+                    Loading your personalized text...
+                </div>
+            </div>
+            
+            <div class="recording-visualizer">
+                <canvas id="visualizer" width="640" height="100"></canvas>
+                <div class="recording-timer" id="timer">00:00</div>
+            </div>
+            
+            <div class="recording-controls">
+                <button id="startRecordingBtn" class="btn btn-primary btn-shimmer">
+                    <i class="fas fa-microphone"></i> Start Recording
+                </button>
+                <button id="stopRecordingBtn" class="btn btn-danger" style="display: none;">
+                    <i class="fas fa-stop"></i> Stop Recording
+                </button>
+                <button id="playbackBtn" class="btn btn-outline" style="display: none;">
+                    <i class="fas fa-play"></i> Play Recording
+                </button>
+                <button id="submitBtn" class="btn btn-success" style="display: none;">
+                    <i class="fas fa-check"></i> Submit Recording
+                </button>
+            </div>
+            
+            <div class="recording-status">
+                <div id="statusMessage" class="status-message"></div>
+                <div id="errorMessage" class="error-message" style="display: none;"></div>
+            </div>
+        </div>
+        
+        <div class="recording-tips">
+            <h3>Tips for a good recording:</h3>
+            <ul>
+                <li>Find a quiet environment with minimal background noise</li>
+                <li>Speak clearly at your normal pace</li>
+                <li>Hold your device about 6-12 inches from your mouth</li>
+                <li>Read the entire text in one continuous recording</li>
+                <li>Aim for a recording of at least 10-15 seconds</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden audio player for playback -->
+<audio id="audioPlayback" style="display: none;"></audio>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const startRecordingBtn = document.getElementById('startRecordingBtn');
+        const stopRecordingBtn = document.getElementById('stopRecordingBtn');
+        const playbackBtn = document.getElementById('playbackBtn');
+        const submitBtn = document.getElementById('submitBtn');
+        const statusMessage = document.getElementById('statusMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const timerDisplay = document.getElementById('timer');
+        const visualizer = document.getElementById('visualizer');
+        const audioPlayback = document.getElementById('audioPlayback');
+        const recordingPrompt = document.getElementById('recordingPrompt');
+        
+        // Canvas context
+        const canvasCtx = visualizer.getContext('2d');
+        
+        // State
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioBlob;
+        let isRecording = false;
+        let startTime;
+        let timerInterval;
+        let audioContext;
+        let analyser;
+        let dataArray;
+        let source;
+        let animationFrame;
+        
+        // Fetch recording prompt
+        fetchRecordingPrompt();
+        
+        // Event listeners
+        startRecordingBtn.addEventListener('click', startRecording);
+        stopRecordingBtn.addEventListener('click', stopRecording);
+        playbackBtn.addEventListener('click', playRecording);
+        submitBtn.addEventListener('click', submitRecording);
+        
+        async function fetchRecordingPrompt() {
+            try {
+                // Get the prompt from session (set during questionnaire submission)
+                const prompt = decodeHtmlEntities("{{ session.get('recording_prompt', '') }}");
+                
+                if (prompt && prompt.trim() !== '') {
+                    recordingPrompt.textContent = prompt;
+                } else {
+                    recordingPrompt.textContent = "I'm providing this voice sample to help assess my glucose levels. My voice contains biomarkers that can be analyzed to estimate my current metabolic state. I feel comfortable participating in this innovative health technology.";
+                }
+                
+                recordingPrompt.classList.add('fade-in');
+            } catch (error) {
+                console.error('Error fetching recording prompt:', error);
+                recordingPrompt.textContent = "I'm providing this voice sample to help assess my glucose levels. My voice contains biomarkers that can be analyzed to estimate my current metabolic state. I feel comfortable participating in this innovative health technology.";
+            }
+        }
+        
+        // Helper function to decode HTML entities
+        function decodeHtmlEntities(text) {
+            if (!text) return '';
+            
+            const textArea = document.createElement('textarea');
+            textArea.innerHTML = text;
+            let decodedText = textArea.value;
+            
+            // Additional replacements for common issues
+            decodedText = decodedText.replace(/&#39;/g, "'")
+                                    .replace(/&quot;/g, '"')
+                                    .replace(/&lt;/g, '<')
+                                    .replace(/&gt;/g, '>')
+                                    .replace(/&amp;/g, '&')
+                                    .replace(/\r?\n/g, ' '); // Replace newlines with spaces
+            
+            return decodedText;
+        }
+        
+        async function startRecording() {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                // Set up audio context for visualization
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                
+                source = audioContext.createMediaStreamSource(stream);
+                source.connect(analyser);
+                
+                const bufferLength = analyser.frequencyBinCount;
+                dataArray = new Uint8Array(bufferLength);
+                
+                // Create media recorder
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.addEventListener('dataavailable', event => {
+                    audioChunks.push(event.data);
+                });
+                
+                mediaRecorder.addEventListener('stop', () => {
+                    // Create audio blob
+                    audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    
+                    // Create audio URL for playback
+                    const audioURL = URL.createObjectURL(audioBlob);
+                    audioPlayback.src = audioURL;
+                    
+                    // Update UI
+                    stopRecordingBtn.style.display = 'none';
+                    playbackBtn.style.display = 'inline-block';
+                    submitBtn.style.display = 'inline-block';
+                    statusMessage.textContent = 'Recording complete! You can play it back or submit.';
+                    statusMessage.className = 'status-message success';
+                });
+                
+                // Start recording
+                mediaRecorder.start();
+                isRecording = true;
+                
+                // Update UI
+                startRecordingBtn.style.display = 'none';
+                stopRecordingBtn.style.display = 'inline-block';
+                statusMessage.textContent = 'Recording... Speak clearly.';
+                statusMessage.className = 'status-message recording';
+                errorMessage.style.display = 'none';
+                
+                // Start timer
+                startTime = Date.now();
+                timerInterval = setInterval(updateTimer, 1000);
+                updateTimer();
+                
+                // Start visualization
+                visualize();
+            } catch (error) {
+                console.error('Error starting recording:', error);
+                showError('Could not access microphone. Please check permissions and try again.');
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                // Stop timer
+                clearInterval(timerInterval);
+                
+                // Stop visualization
+                cancelAnimationFrame(animationFrame);
+                
+                // Close audio tracks
+                if (source && source.mediaStream) {
+                    source.mediaStream.getTracks().forEach(track => track.stop());
+                }
+            }
+        }
+        
+        function playRecording() {
+            if (audioPlayback.src) {
+                audioPlayback.play();
+                statusMessage.textContent = 'Playing recording...';
+                
+                audioPlayback.onended = function() {
+                    statusMessage.textContent = 'Ready to submit or re-record.';
+                };
+            }
+        }
+        
+        async function submitRecording() {
+            if (!audioBlob) {
+                showError('No recording to submit. Please record your voice first.');
+                return;
+            }
+            
+            // Disable buttons during submission
+            submitBtn.disabled = true;
+            playbackBtn.disabled = true;
+            startRecordingBtn.disabled = true;
+            
+            // Update status
+            statusMessage.textContent = 'Submitting recording...';
+            statusMessage.className = 'status-message';
+            
+            try {
+                // Create form data
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'voice_recording.wav');
+                
+                // Send to server
+                const response = await fetch('/api/v1/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Redirect to results page
+                    window.location.href = `/results/${data.session_id}`;
+                } else {
+                    showError(data.error || 'Failed to analyze recording');
+                    
+                    // Re-enable buttons
+                    submitBtn.disabled = false;
+                    playbackBtn.disabled = false;
+                    startRecordingBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Error submitting recording:', error);
+                showError('An error occurred while submitting your recording');
+                
+                // Re-enable buttons
+                submitBtn.disabled = false;
+                playbackBtn.disabled = false;
+                startRecordingBtn.disabled = false;
+            }
+        }
+        
+        function updateTimer() {
+            const elapsedTime = Date.now() - startTime;
+            const seconds = Math.floor(elapsedTime / 1000);
+            const minutes = Math.floor(seconds / 60);
+            
+            const formattedMinutes = String(minutes).padStart(2, '0');
+            const formattedSeconds = String(seconds % 60).padStart(2, '0');
+            
+            timerDisplay.textContent = `${formattedMinutes}:${formattedSeconds}`;
+            
+            // Auto-stop after 30 seconds
+            if (seconds >= 30 && isRecording) {
+                stopRecording();
+            }
+        }
+        
+        function visualize() {
+            // Clear canvas
+            canvasCtx.clearRect(0, 0, visualizer.width, visualizer.height);
+            
+            if (!isRecording) return;
+            
+            // Get frequency data
+            analyser.getByteFrequencyData(dataArray);
+            
+            // Draw visualization
+            const barWidth = (visualizer.width / dataArray.length) * 2.5;
+            let barHeight;
+            let x = 0;
+            
+            canvasCtx.fillStyle = 'rgb(0, 0, 0)';
+            canvasCtx.fillRect(0, 0, visualizer.width, visualizer.height);
+            
+            for (let i = 0; i < dataArray.length; i++) {
+                barHeight = dataArray[i] / 2;
+                
+                // Use gradient color based on frequency
+                const hue = i / dataArray.length * 360;
+                canvasCtx.fillStyle = `hsl(${hue}, 100%, 50%)`;
+                
+                canvasCtx.fillRect(x, visualizer.height - barHeight, barWidth, barHeight);
+                
+                x += barWidth + 1;
+            }
+            
+            // Call again on next frame
+            animationFrame = requestAnimationFrame(visualize);
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            statusMessage.className = 'status-message';
+            
+            // Add shake animation to error message
+            errorMessage.classList.add('shake-animation');
+            
+            // Remove animation class after animation completes
+            setTimeout(() => {
+                errorMessage.classList.remove('shake-animation');
+            }, 500);
+            
+            // Scroll to error
+            errorMessage.scrollIntoView({ behavior: 'smooth' });
+        }
+    });
+</script>
+
+<style>
+    .recording-container {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: var(--spacing-lg) 0;
+    }
+    
+    .recording-card {
+        background-color: var(--bg-card);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        margin-bottom: var(--spacing-xl);
+        border: 1px solid var(--border-color);
+    }
+    
+    .recording-prompt {
+        margin-bottom: var(--spacing-xl);
+    }
+    
+    .recording-prompt h3 {
+        font-size: 1.2rem;
+        color: var(--text-muted);
+        margin-bottom: var(--spacing-md);
+    }
+    
+    .prompt-text {
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: var(--radius-md);
+        padding: var(--spacing-lg);
+        font-size: 1.1rem;
+        line-height: 1.6;
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    .recording-visualizer {
+        margin-bottom: var(--spacing-lg);
+        position: relative;
+    }
+    
+    #visualizer {
+        width: 100%;
+        height: 100px;
+        background-color: #000;
+        border-radius: var(--radius-md);
+    }
+    
+    .recording-timer {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: var(--radius-sm);
+        font-family: monospace;
+    }
+    
+    .recording-controls {
+        display: flex;
+        gap: var(--spacing-md);
+        margin-bottom: var(--spacing-lg);
+        flex-wrap: wrap;
+    }
+    
+    .recording-status {
+        margin-top: var(--spacing-lg);
+    }
+    
+    .status-message {
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: var(--radius-sm);
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    .status-message.recording {
+        color: #f59e0b;
+        background-color: rgba(245, 158, 11, 0.1);
+    }
+    
+    .status-message.success {
+        color: #10b981;
+        background-color: rgba(16, 185, 129, 0.1);
+    }
+    
+    .error-message {
+        margin-top: var(--spacing-md);
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: var(--radius-sm);
+        color: #ef4444;
+        background-color: rgba(239, 68, 68, 0.1);
+    }
+    
+    .recording-tips {
+        background-color: var(--bg-card);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-lg);
+        border: 1px solid var(--border-color);
+    }
+    
+    .recording-tips h3 {
+        font-size: 1.2rem;
+        margin-bottom: var(--spacing-md);
+    }
+    
+    .recording-tips ul {
+        padding-left: var(--spacing-xl);
+    }
+    
+    .recording-tips li {
+        margin-bottom: var(--spacing-sm);
+        color: var(--text-muted);
+    }
+    
+    .shake-animation {
+        animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+        20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    @media (max-width: 768px) {
+        .recording-card, .recording-tips {
+            padding: var(--spacing-lg);
+        }
+        
+        .recording-controls {
+            flex-direction: column;
+        }
+        
+        .recording-controls button {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}

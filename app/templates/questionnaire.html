@@ -1,0 +1,355 @@
+{% extends 'base.html' %}
+
+{% block title %}Health Questionnaire - glucoAudio{% endblock %}
+
+{% block content %}
+<div class="container fade-in">
+    <div class="questionnaire-container">
+        <h1 class="serif-title text-center mb-4">Health Questionnaire</h1>
+        <p class="text-center mb-4">Please answer these questions to help us assess your glucose levels.</p>
+        
+        <div class="questionnaire-card">
+            <div id="loadingIndicator" class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Generating your personalized questionnaire...</p>
+            </div>
+            
+            <form id="questionnaireForm" style="display: none;">
+                <div id="questionsContainer">
+                    <!-- Questions will be inserted here -->
+                </div>
+                
+                <div class="progress mb-3" style="height: 5px;">
+                    <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                </div>
+                <div class="d-flex justify-content-between mb-4">
+                    <small>Question <span id="currentQuestion">0</span> of <span id="totalQuestions">3</span></small>
+                    <small id="progressText">0%</small>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <button type="button" id="prevButton" class="btn btn-outline" disabled>
+                        <i class="fas fa-arrow-left"></i> Previous
+                    </button>
+                    <button type="button" id="nextButton" class="btn btn-primary btn-shimmer">
+                        Next <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </form>
+            
+            <div id="errorMessage" class="alert alert-danger mt-3" style="display: none;"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Elements
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const questionnaireForm = document.getElementById('questionnaireForm');
+        const questionsContainer = document.getElementById('questionsContainer');
+        const prevButton = document.getElementById('prevButton');
+        const nextButton = document.getElementById('nextButton');
+        const progressBar = document.getElementById('progressBar');
+        const currentQuestionSpan = document.getElementById('currentQuestion');
+        const totalQuestionsSpan = document.getElementById('totalQuestions');
+        const progressText = document.getElementById('progressText');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // State
+        let questionnaire = [];
+        let currentQuestionIndex = 0;
+        let responses = {};
+        
+        // Fetch questionnaire
+        fetchQuestionnaire();
+        
+        // Event listeners
+        prevButton.addEventListener('click', showPreviousQuestion);
+        nextButton.addEventListener('click', handleNextButton);
+        
+        async function fetchQuestionnaire() {
+            try {
+                const response = await fetch('/api/v1/questionnaire/generate');
+                const data = await response.json();
+                
+                if (data.success) {
+                    questionnaire = data.questionnaire;
+                    totalQuestionsSpan.textContent = questionnaire.length;
+                    
+                    // Create question elements
+                    createQuestionElements();
+                    
+                    // Show first question
+                    showQuestion(0);
+                    
+                    // Hide loading, show form
+                    loadingIndicator.style.display = 'none';
+                    questionnaireForm.style.display = 'block';
+                } else {
+                    showError(data.error || 'Failed to load questionnaire');
+                }
+            } catch (error) {
+                showError('An error occurred while loading the questionnaire');
+                console.error(error);
+            }
+        }
+        
+        function createQuestionElements() {
+            questionsContainer.innerHTML = '';
+            
+            questionnaire.forEach((question, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question';
+                questionDiv.id = `question-${index}`;
+                questionDiv.style.display = 'none';
+                
+                const questionTitle = document.createElement('h3');
+                questionTitle.className = 'question-title mb-3';
+                questionTitle.textContent = question.text;
+                
+                const optionsDiv = document.createElement('div');
+                optionsDiv.className = 'options-container';
+                
+                question.options.forEach(option => {
+                    const optionLabel = document.createElement('label');
+                    optionLabel.className = 'option-label';
+                    
+                    const optionInput = document.createElement('input');
+                    optionInput.type = 'radio';
+                    optionInput.name = `question-${index}`;
+                    optionInput.value = option.id;
+                    optionInput.className = 'option-input';
+                    optionInput.dataset.questionId = question.id;
+                    optionInput.dataset.optionText = option.text;
+                    
+                    // Add change event to track responses
+                    optionInput.addEventListener('change', function() {
+                        if (this.checked) {
+                            responses[this.dataset.questionId] = {
+                                optionId: this.value,
+                                optionText: this.dataset.optionText,
+                                questionText: question.text
+                            };
+                            
+                            // Enable next button when an option is selected
+                            nextButton.disabled = false;
+                        }
+                    });
+                    
+                    const optionText = document.createElement('span');
+                    optionText.className = 'option-text';
+                    optionText.textContent = option.text;
+                    
+                    optionLabel.appendChild(optionInput);
+                    optionLabel.appendChild(optionText);
+                    optionsDiv.appendChild(optionLabel);
+                });
+                
+                questionDiv.appendChild(questionTitle);
+                questionDiv.appendChild(optionsDiv);
+                questionsContainer.appendChild(questionDiv);
+            });
+        }
+        
+        function showQuestion(index) {
+            // Hide all questions
+            document.querySelectorAll('.question').forEach(q => q.style.display = 'none');
+            
+            // Show current question
+            const currentQuestion = document.getElementById(`question-${index}`);
+            currentQuestion.style.display = 'block';
+            
+            // Update progress
+            currentQuestionIndex = index;
+            currentQuestionSpan.textContent = index + 1;
+            const progress = ((index + 1) / questionnaire.length) * 100;
+            progressBar.style.width = `${progress}%`;
+            progressBar.setAttribute('aria-valuenow', progress);
+            progressText.textContent = `${Math.round(progress)}%`;
+            
+            // Update buttons
+            prevButton.disabled = index === 0;
+            
+            // Check if there's a selected option for this question
+            const selectedOption = document.querySelector(`#question-${index} input:checked`);
+            nextButton.disabled = !selectedOption;
+            
+            // Update next button text on last question
+            if (index === questionnaire.length - 1) {
+                nextButton.innerHTML = 'Submit <i class="fas fa-check"></i>';
+            } else {
+                nextButton.innerHTML = 'Next <i class="fas fa-arrow-right"></i>';
+            }
+            
+            // Add animation
+            currentQuestion.classList.add('fade-in');
+        }
+        
+        function showPreviousQuestion() {
+            if (currentQuestionIndex > 0) {
+                showQuestion(currentQuestionIndex - 1);
+            }
+        }
+        
+        function handleNextButton() {
+            if (currentQuestionIndex < questionnaire.length - 1) {
+                // Go to next question
+                showQuestion(currentQuestionIndex + 1);
+            } else {
+                // Submit questionnaire
+                submitQuestionnaire();
+            }
+        }
+        
+        async function submitQuestionnaire() {
+            // Disable buttons during submission
+            prevButton.disabled = true;
+            nextButton.disabled = true;
+            nextButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Submitting...';
+            
+            try {
+                const response = await fetch('/api/v1/questionnaire/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ responses })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Redirect to recording page
+                    window.location.href = '/recording';
+                } else {
+                    showError(data.error || 'Failed to submit questionnaire');
+                    nextButton.disabled = false;
+                    prevButton.disabled = false;
+                    nextButton.innerHTML = 'Submit <i class="fas fa-check"></i>';
+                }
+            } catch (error) {
+                showError('An error occurred while submitting the questionnaire');
+                console.error(error);
+                nextButton.disabled = false;
+                prevButton.disabled = false;
+                nextButton.innerHTML = 'Submit <i class="fas fa-check"></i>';
+            }
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            loadingIndicator.style.display = 'none';
+            
+            // Add shake animation to error message
+            errorMessage.classList.add('shake-animation');
+            
+            // Remove animation class after animation completes
+            setTimeout(() => {
+                errorMessage.classList.remove('shake-animation');
+            }, 500);
+            
+            // Scroll to error
+            errorMessage.scrollIntoView({ behavior: 'smooth' });
+            
+            // Add retry button if not already present
+            if (!document.getElementById('retryButton')) {
+                const retryButton = document.createElement('button');
+                retryButton.id = 'retryButton';
+                retryButton.className = 'btn btn-primary mt-3';
+                retryButton.textContent = 'Retry';
+                retryButton.addEventListener('click', () => {
+                    errorMessage.style.display = 'none';
+                    loadingIndicator.style.display = 'block';
+                    fetchQuestionnaire();
+                });
+                errorMessage.appendChild(document.createElement('br'));
+                errorMessage.appendChild(retryButton);
+            }
+        }
+    });
+</script>
+
+<style>
+    .questionnaire-container {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: var(--spacing-lg) 0;
+    }
+    
+    .questionnaire-card {
+        background-color: var(--bg-card);
+        border-radius: var(--radius-lg);
+        padding: var(--spacing-xl);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        margin-bottom: var(--spacing-xl);
+        border: 1px solid var(--border-color);
+    }
+    
+    .question {
+        margin-bottom: var(--spacing-xl);
+    }
+    
+    .question-title {
+        font-size: 1.3rem;
+        margin-bottom: var(--spacing-md);
+        font-weight: 600;
+    }
+    
+    .options-container {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+    
+    .option-label {
+        display: flex;
+        align-items: center;
+        padding: var(--spacing-md);
+        border-radius: var(--radius-md);
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .option-label:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .option-input {
+        margin-right: var(--spacing-md);
+    }
+    
+    .option-input:checked + .option-text {
+        color: var(--primary-color);
+        font-weight: 500;
+    }
+    
+    .option-label:has(.option-input:checked) {
+        background-color: rgba(79, 70, 229, 0.1);
+        border-color: var(--primary-color);
+    }
+    
+    .shake-animation {
+        animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+    
+    @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+        20%, 40%, 60%, 80% { transform: translateX(5px); }
+    }
+    
+    @media (max-width: 768px) {
+        .questionnaire-card {
+            padding: var(--spacing-lg);
+        }
+    }
+</style>
+{% endblock %}

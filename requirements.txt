@@ -1,0 +1,14 @@
+flask[async]
+flask-cors
+supabase
+anthropic
+librosa
+transformers
+torch
+python-dotenv
+gunicorn
+gevent
+portia-sdk-python
+elevenlabs
+pydantic
+bcrypt
