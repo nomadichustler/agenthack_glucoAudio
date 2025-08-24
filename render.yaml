@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: gluco-audio
+    env: python
+    region: ohio
+    buildCommand: |
+      chmod +x build.sh
+      ./build.sh
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --worker-class gevent --workers 2
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY
+        sync: false
+    healthCheckPath: /
+    autoDeploy: false

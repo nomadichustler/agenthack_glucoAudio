@@ -14,60 +14,93 @@ The app uses a multi-agent system built on the Portia SDK to process voice recor
 - **Cost-effective**: Reduces ongoing expenses of traditional monitoring supplies
 - **Accessible**: Works on standard smartphones with internet connection
 - **Privacy-first**: User data is securely handled with optional cloud storage
+- **AI-powered**: Uses advanced machine learning models for accurate analysis
 
-## Technical Foundation
+## Technical Stack
 
-- Flask-based Python backend
-- Supabase for database storage
-- Custom authentication with password hashing
-- Claude API for advanced biomarker analysis
-- ElevenLabs for voice response synthesis
-- Modern responsive frontend with real-time visualizations
+### Backend
+- **Framework**: Flask (Async) with Gunicorn + Gevent workers
+- **Database**: Supabase with custom authentication
+- **AI/ML**: 
+  - Claude API for biomarker analysis
+  - Transformers for voice processing
+  - PyTorch (CPU) for model inference
+- **Voice**: 
+  - Librosa for audio processing
+  - ElevenLabs for voice synthesis
+- **Agent System**: Portia SDK for multi-agent orchestration
+
+### Frontend
+- **UI**: Modern responsive design with custom CSS
+- **JavaScript**: Vanilla JS with Web Audio API
+- **Visualization**: Dynamic charts for glucose trends
+- **Real-time**: WebSocket support for live updates
 
 ## Getting Started
 
+### Local Development
+
 1. Clone the repo:
-   ```
+   ```bash
    git clone https://github.com/abhisheksonii/agenthacks.git
    cd glucoAudio
    ```
 
 2. Set up your environment:
-   ```
+   ```bash
    python -m venv venv
-   venv\Scripts\activate  # On Windows
-   # OR
-   source venv/bin/activate  # On Unix/macOS
+   # On Windows
+   venv\Scripts\activate
+   # On Unix/macOS
+   source venv/bin/activate
    ```
 
-3. Install what you need:
-   ```
+3. Install dependencies:
+   ```bash
    pip install -r requirements.txt
    ```
 
-4. Set up the database:
-   ```
-   # Run the database schema SQL file in your Supabase project
-   # You can copy and paste the contents of database_schema_updated.sql
-   # into the Supabase SQL Editor
-   ```
+4. Configure environment:
+   - Copy `env.example` to `.env`
+   - Fill in required API keys:
+     ```
+     SUPABASE_URL=your-supabase-url
+     SUPABASE_ANON_KEY=your-supabase-key
+     ANTHROPIC_API_KEY=your-anthropic-key
+     ELEVENLABS_API_KEY=your-elevenlabs-key
+     PORTIA_API_KEY=your-portia-key
+     SECRET_KEY=your-secure-random-string
+     ```
 
-5. Configure your environment:
-   - Create a `.env` file with your API keys:
-     - SUPABASE_URL and SUPABASE_ANON_KEY
-     - ANTHROPIC_API_KEY
-     - ELEVENLABS_API_KEY
-     - PORTIA_API_KEY
-     - SECRET_KEY (for Flask sessions)
+5. Set up database:
+   - Use Supabase SQL Editor
+   - Run schema from `database_schema_updated.sql`
 
-6. Launch the app:
-   ```
+6. Run the application:
+   ```bash
    python app.py
    ```
 
-7. Visit `http://localhost:5000` in your browser
+7. Visit `http://localhost:5000`
 
-## Project Layout
+### Production Deployment (Render)
+
+1. Fork/clone the repository
+
+2. In Render dashboard:
+   - Create a new Web Service
+   - Connect your repository
+   - Select Python environment
+   - Environment variables:
+     - Set all API keys as mentioned above
+     - Set `PYTHON_VERSION=3.11.0`
+
+3. The deployment will use:
+   - `build.sh` for dependency installation
+   - `render.yaml` for service configuration
+   - Gunicorn with gevent workers for production serving
+
+## Project Structure
 
 ```
 glucoAudio/
@@ -75,46 +108,79 @@ glucoAudio/
 │   ├── __init__.py              # App initialization
 │   ├── config.py                # Configuration
 │   ├── models/                  # Data models
+│   │   ├── user.py             # User model
+│   │   ├── prediction.py       # Glucose predictions
+│   │   ├── feedback.py         # User feedback
+│   │   └── voice_session.py    # Recording sessions
 │   ├── agents/                  # Analysis agents
+│   │   ├── audio_processor.py  # Voice processing
+│   │   ├── claude_inference.py # AI analysis
+│   │   └── voice_synthesis.py  # Response generation
 │   ├── routes/                  # API endpoints
-│   ├── services/                # Core services
-│   │   ├── user_service.py      # Custom authentication
-│   │   └── ...                  # Other services
-│   ├── static/                  # Frontend assets
-│   └── templates/               # HTML templates
-├── app.py                       # Entry point
-├── database_schema_updated.sql  # Database schema with custom auth
-├── README_AUTHENTICATION.md     # Authentication documentation
-└── requirements.txt             # Dependencies
+│   │   ├── api.py             # Core API routes
+│   │   ├── auth.py            # Authentication
+│   │   └── main.py            # Web routes
+│   ├── services/               # Business logic
+│   │   ├── anthropic_service.py # Claude integration
+│   │   ├── elevenlabs_service.py # Voice synthesis
+│   │   ├── supabase_service.py  # Database operations
+│   │   └── user_service.py      # Auth service
+│   ├── static/                 # Frontend assets
+│   └── templates/              # HTML templates
+├── app.py                      # Entry point
+├── build.sh                    # Build script
+├── render.yaml                 # Deployment config
+├── requirements.txt            # Dependencies
+└── README_AUTHENTICATION.md    # Auth details
 ```
-
-## Authentication
-
-This project uses a custom authentication system that:
-- Stores user credentials in the Supabase database
-- Uses bcrypt for secure password hashing
-- Manages sessions with Flask's session system
-
-For more details, see [README_AUTHENTICATION.md](README_AUTHENTICATION.md).
 
 ## API Reference
 
-- `/auth/register` - User registration
-- `/auth/login` - User login
-- `/auth/logout` - User logout
-- `/auth/profile` - Profile management
-- `/auth/change-password` - Password change
-- `/api/v1/questionnaire` - Health context submission
-- `/api/v1/voice/upload` - Voice sample upload
-- `/api/v1/analyze` - Voice analysis
-- `/api/v1/results/<session_id>` - Analysis results
-- `/api/v1/history` - User history
-- `/api/v1/feedback` - User feedback submission
+### Authentication
+- `POST /auth/register` - User registration
+- `POST /auth/login` - User login
+- `POST /auth/logout` - User logout
+- `GET/PUT /auth/profile` - Profile management
+- `POST /auth/change-password` - Password change
 
-## Important Note
+### Core Features
+- `POST /api/v1/questionnaire` - Health context submission
+- `POST /api/v1/voice/upload` - Voice sample upload
+- `POST /api/v1/analyze` - Voice analysis
+- `GET /api/v1/results/<session_id>` - Analysis results
+- `GET /api/v1/history` - User history
+- `POST /api/v1/feedback` - User feedback submission
+
+## Security & Privacy
+
+- Custom authentication system with bcrypt password hashing
+- Secure session management
+- Row Level Security (RLS) in Supabase
+- CSRF protection
+- Encrypted data storage
+- Optional data retention controls
+
+For detailed authentication information, see [README_AUTHENTICATION.md](README_AUTHENTICATION.md).
+
+## Important Notice
 
 This is an experimental research technology and should not replace medical devices or professional advice. Always consult healthcare professionals for medical decisions.
 
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests
+5. Submit a pull request
+
 ## License
 
-MIT Licensed - See LICENSE file for details.
+MIT Licensed - See LICENSE file for details
+
+## Support
+
+For issues and questions:
+- Open an issue on GitHub
+- Contact the development team
+- Check documentation in the repository
