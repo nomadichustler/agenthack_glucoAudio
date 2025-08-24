@@ -11,11 +11,11 @@ install_requirements() {
     while [ $attempt -le $MAX_RETRIES ]; do
         echo "Attempt $attempt of $MAX_RETRIES: Installing Python packages..."
         
-        # Update pip first
-        python -m pip install --upgrade pip
-        
+        # Install build dependencies first
+        pip install --no-cache-dir wheel setuptools cython
+
         # Try installing packages
-        if pip install -r requirements.txt --no-cache-dir; then
+        if pip install --no-cache-dir -r requirements.txt; then
             echo "Package installation successful!"
             return 0
         fi
@@ -28,14 +28,12 @@ install_requirements() {
     return 1
 }
 
-# Make sure we're using Python 3.11
-if command -v python3.11 &> /dev/null; then
-    echo "Using Python 3.11"
-    python3.11 -m pip install --upgrade pip
-else
-    echo "Using default Python"
-    python -m pip install --upgrade pip
-fi
+# Ensure we're using Python 3.11
+PYTHON_VERSION=$(python --version 2>&1 | cut -d' ' -f2)
+echo "Python version: $PYTHON_VERSION"
+
+# Update pip
+python -m pip install --upgrade pip
 
 # Install packages with retry logic
 install_requirements

@@ -4,12 +4,14 @@ services:
     env: python
     region: ohio
     buildCommand: |
+      python -m pip install --upgrade pip
+      pip install wheel setuptools cython
       chmod +x build.sh
       ./build.sh
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --worker-class gevent --workers 2
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.11.8
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: SUPABASE_URL
