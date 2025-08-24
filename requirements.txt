@@ -5,7 +5,7 @@ anthropic
 librosa
 transformers
 --extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.2.1+cpu
+torch==2.8.0+cpu
 python-dotenv
 gunicorn
 gevent==24.2.1

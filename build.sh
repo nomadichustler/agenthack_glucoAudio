@@ -10,10 +10,16 @@ install_requirements() {
     local attempt=1
     while [ $attempt -le $MAX_RETRIES ]; do
         echo "Attempt $attempt of $MAX_RETRIES: Installing Python packages..."
-        if pip install -r requirements.txt; then
+        
+        # Update pip first
+        python -m pip install --upgrade pip
+        
+        # Try installing packages
+        if pip install -r requirements.txt --no-cache-dir; then
             echo "Package installation successful!"
             return 0
         fi
+        
         echo "Package installation failed. Retrying in $RETRY_DELAY seconds..."
         sleep $RETRY_DELAY
         attempt=$((attempt + 1))
@@ -22,8 +28,14 @@ install_requirements() {
     return 1
 }
 
-# Ensure pip is up to date
-python -m pip install --upgrade pip
+# Make sure we're using Python 3.11
+if command -v python3.11 &> /dev/null; then
+    echo "Using Python 3.11"
+    python3.11 -m pip install --upgrade pip
+else
+    echo "Using default Python"
+    python -m pip install --upgrade pip
+fi
 
 # Install packages with retry logic
 install_requirements
